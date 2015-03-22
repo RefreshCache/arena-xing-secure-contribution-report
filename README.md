@@ -1,1 +1,1 @@
-# arena-xing-secure-contribution-report
+This is an individual contribution report generator so that our users can print their own statements by simply clicking a link when they are logged in. It hides the query strings that would give away report information, such as GUID, report name, etc.
