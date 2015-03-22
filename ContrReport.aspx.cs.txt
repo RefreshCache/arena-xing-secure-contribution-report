@@ -1,0 +1,108 @@
+using System;
+using System.Data;
+using System.Configuration;
+using System.Collections;
+using System.Web;
+using System.Web.Security;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using System.Web.UI.WebControls.WebParts;
+using System.Web.UI.HtmlControls;
+using System.Collections.Generic;
+using Arena.Core;
+using Arena.Portal;
+using Arena.Reporting;
+using Arena.Framework.ReportExecution2005;
+using Arena.Organization;
+using Arena.Exceptions;
+
+namespace ArenaWeb
+{
+    public partial class ContrReport : BasePage
+	{
+		protected string fileName;
+
+		protected void Page_Load(object sender, EventArgs e)
+		{
+            // These are the strings that our contribution report looks for (you can use your own individual report, of course):
+            //      Report - (ie "/Arena/Report Folder/Report Name")
+            //      FromDate - MM/DD/YYYY
+            //      ToDate - MM/DD/YYYY
+            //      GUID
+
+            string reportname = "YOUR FULL-PATH REPORT NAME HERE";
+            string fromdate = "";
+            string todate = "";
+            DateTime dtn = DateTime.Now;
+            DateTime dtl = DateTime.Today.AddYears(-1);
+
+            try
+            {
+                // we only allow users two options: YTD and Last year.
+                // the links we give the user to this report are ########.aspx?type=ytd or ?type=last
+                if (Request.QueryString["type"].ToUpper() == "LAST")
+                {
+                    fromdate = "1/1/" + dtl.Year.ToString();
+                    todate = "12/31/" + dtl.Year.ToString();
+                }
+                else
+                {
+                    fromdate = "1/1/" + dtn.Year.ToString();
+                    todate = dtn.ToShortDateString();
+                }
+
+                string reportURL = string.Empty;
+                List<Arena.Reporting.ReportParameter> parms = new List<Arena.Reporting.ReportParameter>();
+                byte[] report;
+                reportURL = reportname;
+                if (reportURL != string.Empty && reportURL != null)
+                {
+                    // we have a person attribute that has a "Statement Printed" datetime field.
+                    // this updates that so we know when they last viewed their statement.
+                    // our person attribute ID is 164, change to your own or comment this out to remove this feature.
+                    PersonAttribute personAttribute = new PersonAttribute(CurrentPerson.PersonID, 164);
+                    DateTime padate = DateTime.Now;
+                    personAttribute.DateValue = Convert.ToDateTime(padate.ToShortDateString());
+                    personAttribute.Save(CurrentOrganization.OrganizationID, CurrentUser.Identity.Name);
+
+                    //Loop Through Other Keys To Determine Parameters
+                    parms.Add(new Arena.Reporting.ReportParameter("FromDate", fromdate));
+                    parms.Add(new Arena.Reporting.ReportParameter("ToDate", todate));
+                    parms.Add(new Arena.Reporting.ReportParameter("GUID", CurrentPerson.Guid.ToString()));
+
+                    ReportPrinter rp = new ReportPrinter();
+                    report = rp.RenderPDF(reportURL, parms);
+
+                    Response.Clear();
+                    Response.ClearContent();
+                    Response.ClearHeaders();
+                    Response.AppendHeader("content-length", report.Length.ToString());
+                    Response.ContentType = "application/pdf";
+                    Response.BinaryWrite(report);
+                    Response.Flush();
+                    Response.Close();
+                    Response.End();
+                }
+                else
+                    Response.Write("<b>Invalid Report Parameters or Invalid Report</b>");
+            }
+            catch
+            {
+                Response.Write("<table width=\"280\" align=\"center\" style=\"margin-top: 200px; font-family: tahoma, verdana; font-size: 16px; color: #444444; width: 320px; padding: 20px; border: solid 1px #cadec9; background: #e7f4e7;\">" +
+                                   "<tr>" +
+                                       "<td align=\"center\" valign=\"middle\">" +
+                                           "<h1>Oh man!</h1>" +
+                                           "How embarrassing! There was an error processing your statement. This can occur for a variety of reasons. " +
+                                           "Please contact <a href=\"mailto:emailaddy\">emailaddy</a> for resolution.<br /><br />" +
+                                       "</td>" +
+                                   "</tr>" +
+                               "</table>");
+            }
+		}
+
+		public override Control DynamicContentContainer
+		{
+			get { return null; }
+		}
+	}
+}
